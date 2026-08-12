@@ -11,14 +11,14 @@ export async function bootMotion() {
   document.body.classList.remove('is-loading')
 
   if (reduce) {
-    document.querySelectorAll('.media-reveal').forEach((el) => {
+    document.querySelectorAll('.media-reveal, .craft-media img, .frame img').forEach((el) => {
       ;(el as HTMLElement).style.clipPath = 'none'
     })
     return
   }
 
   const lenis = new Lenis({
-    duration: 1.15,
+    duration: 1.18,
     smoothWheel: true,
   })
 
@@ -32,15 +32,16 @@ export async function bootMotion() {
   reveal()
   images()
   numbers()
-  horizontal()
+  film()
   progress()
+  chapters()
 }
 
 function runLoader(reduce: boolean) {
   const root = document.querySelector<HTMLElement>('.loader')
-  const bar = document.querySelector<HTMLElement>('.loader-bar span')
+  const ring = document.querySelector<SVGCircleElement>('.loader-ring circle')
   const count = document.querySelector<HTMLElement>('.loader-count')
-  if (!root || !bar || !count) return Promise.resolve()
+  if (!root || !count) return Promise.resolve()
 
   if (reduce) {
     root.remove()
@@ -51,17 +52,17 @@ function runLoader(reduce: boolean) {
   return new Promise<void>((resolve) => {
     gsap.to(state, {
       n: 100,
-      duration: 1.35,
+      duration: 1.55,
       ease: 'power2.inOut',
       onUpdate: () => {
         const value = Math.round(state.n)
         count.textContent = String(value).padStart(2, '0')
-        bar.style.width = `${value}%`
+        if (ring) ring.style.strokeDashoffset = String(339 - (339 * value) / 100)
       },
       onComplete: () => {
         gsap.to(root, {
           yPercent: -100,
-          duration: 0.9,
+          duration: 0.95,
           ease: 'power4.inOut',
           onComplete: () => {
             root.remove()
@@ -77,18 +78,25 @@ function intro() {
   const lines = document.querySelectorAll('.hero-title .line-inner')
   if (!lines.length) return
   gsap.from(lines, {
-    yPercent: 115,
-    duration: 1.15,
+    yPercent: 120,
+    duration: 1.25,
     ease: 'power4.out',
-    stagger: 0.08,
+    stagger: 0.09,
   })
   gsap.from('.hero .reveal', {
-    y: 24,
+    y: 28,
     opacity: 0,
-    duration: 0.9,
+    duration: 0.95,
     ease: 'power3.out',
     stagger: 0.08,
-    delay: 0.35,
+    delay: 0.28,
+  })
+  gsap.from('.hero-orb', {
+    scale: 0.72,
+    opacity: 0,
+    duration: 1.4,
+    ease: 'power3.out',
+    delay: 0.15,
   })
 }
 
@@ -96,9 +104,9 @@ function reveal() {
   document.querySelectorAll('.reveal').forEach((el) => {
     if (el.closest('.hero')) return
     gsap.from(el, {
-      y: 36,
+      y: 40,
       opacity: 0,
-      duration: 0.95,
+      duration: 1,
       ease: 'power3.out',
       scrollTrigger: {
         trigger: el,
@@ -109,18 +117,17 @@ function reveal() {
 }
 
 function images() {
-  document.querySelectorAll<HTMLElement>('.media-reveal, .card img').forEach((el) => {
+  document.querySelectorAll<HTMLElement>('.craft-media img, .frame img, .zahlen-bg img').forEach((el) => {
     gsap.fromTo(
       el,
-      { clipPath: 'inset(100% 0 0 0)', scale: 1.08 },
+      { scale: 1.08 },
       {
-        clipPath: 'inset(0% 0 0 0)',
         scale: 1,
-        duration: 1.25,
-        ease: 'power3.out',
+        duration: 1.15,
+        ease: 'power2.out',
         scrollTrigger: {
-          trigger: el,
-          start: 'top 86%',
+          trigger: el.closest('figure, .zahlen-bg') ?? el,
+          start: 'top 90%',
         },
       },
     )
@@ -133,7 +140,7 @@ function numbers() {
     const obj = { n: 0 }
     gsap.to(obj, {
       n: end,
-      duration: 1.6,
+      duration: 1.7,
       ease: 'power2.out',
       scrollTrigger: {
         trigger: el,
@@ -150,22 +157,22 @@ function numbers() {
   })
 }
 
-function horizontal() {
-  const pin = document.querySelector<HTMLElement>('.ansatz-pin')
-  const track = document.querySelector<HTMLElement>('[data-steps]')
+function film() {
+  const pin = document.querySelector<HTMLElement>('.film-pin')
+  const track = document.querySelector<HTMLElement>('[data-film]')
   if (!pin || !track) return
   if (!window.matchMedia('(min-width: 900px)').matches) return
 
-  const distance = () => Math.max(0, track.scrollWidth - window.innerWidth + 80)
+  const distance = () => Math.max(0, track.scrollWidth - window.innerWidth + 72)
 
   gsap.to(track, {
     x: () => -distance(),
     ease: 'none',
     scrollTrigger: {
       trigger: pin,
-      start: 'top 96px',
+      start: 'top 88px',
       end: () => `+=${distance()}`,
-      scrub: 0.7,
+      scrub: 0.65,
       pin: true,
       anticipatePin: 1,
       invalidateOnRefresh: true,
@@ -185,5 +192,33 @@ function progress() {
       end: 'bottom bottom',
       scrub: 0.2,
     },
+  })
+}
+
+function chapters() {
+  const links = document.querySelectorAll<HTMLAnchorElement>('.chapters a')
+  if (!links.length) return
+
+  const map: Array<[string, HTMLElement | null]> = [
+    ['top', document.querySelector('#top')],
+    ['leistungen', document.querySelector('#leistungen')],
+    ['arbeit', document.querySelector('#arbeit')],
+    ['ansatz', document.querySelector('#ansatz')],
+    ['kontakt', document.querySelector('#kontakt')],
+  ]
+
+  map.forEach(([id, el]) => {
+    if (!el) return
+    ScrollTrigger.create({
+      trigger: el,
+      start: 'top 45%',
+      end: 'bottom 45%',
+      onToggle: (self) => {
+        if (!self.isActive) return
+        links.forEach((link) => {
+          link.classList.toggle('is-active', link.dataset.chapter === id)
+        })
+      },
+    })
   })
 }

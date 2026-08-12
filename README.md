@@ -1,8 +1,8 @@
 # Kitachi Studio
 
-Landing page for Kitachi — websites and AI systems for German companies.
+Second-cut landing for Kitachi — websites and AI systems for German companies.
 
-German-language, cream-and-sunrise brand, WebGL field (Three.js) and motion (GSAP + Lenis).
+German-language. The mark is the system: three tomoe, three crafts (Sehen, Denken, Handeln). WebGL field (Three.js) draws the living mark. Motion is GSAP + Lenis.
 
 ## Local
 

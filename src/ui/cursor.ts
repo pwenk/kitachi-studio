@@ -18,15 +18,15 @@ export function initCursor() {
     { passive: true },
   )
 
-  const hoverables = 'a, button, input, select, textarea, .card, .service'
+  const hoverables = 'a, button, input, select, textarea, .craft, .frame'
   document.addEventListener('pointerover', (event) => {
     const target = event.target as HTMLElement | null
     el.classList.toggle('is-hover', Boolean(target?.closest(hoverables)))
   })
 
   const tick = () => {
-    x += (tx - x) * 0.18
-    y += (ty - y) * 0.18
+    x += (tx - x) * 0.2
+    y += (ty - y) * 0.2
     el.style.transform = `translate3d(${x}px, ${y}px, 0)`
     requestAnimationFrame(tick)
   }
