@@ -43,10 +43,12 @@ export function initClock() {
       timeZone: 'Europe/Berlin',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
     }).format(now)
-    el.textContent = `Oldenburg · ${time}`
+    el.textContent = `${time} CET`
   }
 
   tick()
-  window.setInterval(tick, 15000)
+  window.setInterval(tick, 1000)
 }

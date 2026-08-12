@@ -1,152 +1,97 @@
 import {
-  Clock,
+  AdditiveBlending,
+  BufferAttribute,
+  BufferGeometry,
   Color,
-  Mesh,
-  OrthographicCamera,
-  PlaneGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  PerspectiveCamera,
+  Points,
   Scene,
   ShaderMaterial,
   Vector2,
   WebGLRenderer,
 } from 'three'
 
-const vertex = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
-}
-`
-
-const fragment = `
-precision highp float;
-
-varying vec2 vUv;
+const pointVert = `
+attribute float aSeed;
 uniform float uTime;
-uniform vec2 uRes;
-uniform vec2 uMouse;
-uniform float uReduce;
-uniform float uQuality;
-
-vec3 plum = vec3(0.420, 0.027, 0.388);
-vec3 magenta = vec3(0.706, 0.075, 0.416);
-vec3 crimson = vec3(0.894, 0.180, 0.345);
-vec3 coral = vec3(0.961, 0.353, 0.173);
-vec3 amber = vec3(0.976, 0.576, 0.047);
-vec3 cream = vec3(0.984, 0.969, 0.949);
-vec3 ink = vec3(0.086, 0.043, 0.063);
-
-vec2 rot(vec2 p, float a) {
-  float c = cos(a);
-  float s = sin(a);
-  return vec2(c * p.x - s * p.y, s * p.x + c * p.y);
-}
-
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  float a = hash(i);
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-float fbm(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  int oct = uQuality > 0.5 ? 5 : 3;
-  for (int i = 0; i < 5; i++) {
-    if (i >= oct) break;
-    v += a * noise(p);
-    p *= 2.05;
-    a *= 0.5;
-  }
-  return v;
-}
-
-float tomoe(vec2 p) {
-  float head = length(p - vec2(0.0, 0.30)) - 0.195;
-  float mid = length(p - vec2(-0.11, 0.06)) - 0.125;
-  float tail = length(p - vec2(-0.20, -0.16)) - 0.055;
-  float tip = length(p - vec2(-0.16, -0.28)) - 0.028;
-  return min(min(head, mid), min(tail, tip));
-}
-
-vec3 heat(float t) {
-  t = clamp(t, 0.0, 1.0);
-  vec3 c = mix(plum, magenta, smoothstep(0.0, 0.28, t));
-  c = mix(c, crimson, smoothstep(0.22, 0.50, t));
-  c = mix(c, coral, smoothstep(0.46, 0.74, t));
-  c = mix(c, amber, smoothstep(0.70, 1.0, t));
-  return c;
-}
+uniform float uPixelRatio;
+varying float vGlow;
 
 void main() {
-  vec2 uv = vUv;
-  float aspect = uRes.x / max(uRes.y, 1.0);
-  vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
-  float t = uTime * 0.22;
+  vec3 pos = position;
+  float wave = sin(uTime * 0.55 + aSeed * 18.0);
+  pos += normalize(position + 0.0001) * wave * 0.045;
 
-  vec2 m = (uMouse - 0.5) * vec2(aspect, 1.0);
-  p -= m * 0.16;
+  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+  gl_Position = projectionMatrix * mv;
 
-  float n = fbm(p * 2.4 + vec2(t * 0.35, -t * 0.28));
-  float n2 = fbm(p * 5.2 - t * 0.55 + 9.0);
-  vec2 warp = vec2(
-    fbm(p * 1.8 + t * 0.4),
-    fbm(p * 1.8 - t * 0.35 + 4.2)
-  ) - 0.5;
-  vec2 q = p + warp * 0.18;
-
-  float field = 1.0;
-  float glow = 0.0;
-  float spin = t * 0.55;
-
-  for (int i = 0; i < 3; i++) {
-    float a = float(i) * 2.09439510239 + spin;
-    vec2 local = rot(q, -a);
-    float d = tomoe(local * 1.55);
-    field = min(field, d);
-    glow += exp(-max(d, 0.0) * (18.0 + n * 10.0));
-  }
-
-  float ring = abs(length(q) - 0.62) - 0.007;
-  glow += exp(-max(ring, 0.0) * 90.0) * 0.85;
-  field = min(field, ring);
-
-  float fill = 1.0 - smoothstep(-0.012, 0.018, field);
-  float fog = smoothstep(0.15, 0.92, n) * 0.55 + n2 * 0.18;
-  float angle = atan(q.y, q.x);
-  float ramp = fract(angle / 6.28318530718 + 0.5 + t * 0.08);
-
-  vec3 brand = heat(ramp + n * 0.12);
-  vec3 smoke = mix(cream, heat(0.35 + n * 0.5), 0.22 + fog * 0.45);
-
-  float left = smoothstep(-0.15, 0.55, uv.x);
-  vec3 col = mix(cream, smoke, 0.35 + 0.55 * left);
-  col = mix(col, brand, fill * 0.96);
-  col = mix(col, brand, clamp(glow * 0.42, 0.0, 0.85));
-  col = mix(col, cream, (1.0 - left) * 0.18);
-
-  float vig = smoothstep(1.25, 0.28, length((uv - vec2(0.58, 0.48)) * vec2(1.15, 1.2)));
-  col = mix(col * 0.88, col, vig);
-
-  float grain = hash(uv * uRes.xy + fract(uTime) * 40.0) * 0.035;
-  col += grain - 0.017;
-
-  if (uReduce > 0.5) {
-    col = mix(cream, brand, fill * 0.88 + glow * 0.2);
-  }
-
-  gl_FragColor = vec4(col, 1.0);
+  float pulse = 0.62 + 0.38 * sin(uTime * 2.1 + aSeed * 28.0);
+  vGlow = pulse;
+  float size = 4.2 + pulse * 3.4 + aSeed * 2.2;
+  gl_PointSize = size * uPixelRatio * (2.6 / max(-mv.z, 0.8));
 }
 `
+
+const pointFrag = `
+varying float vGlow;
+
+void main() {
+  vec2 uv = gl_PointCoord * 2.0 - 1.0;
+  float d = length(uv);
+  float core = smoothstep(0.42, 0.0, d);
+  float halo = exp(-d * 3.4) * 0.62;
+  vec3 cyan = vec3(0.30, 0.91, 1.0);
+  vec3 white = vec3(0.95, 0.98, 1.0);
+  vec3 col = mix(cyan, white, core);
+  float alpha = (core * 0.95 + halo) * vGlow;
+  if (alpha < 0.03) discard;
+  gl_FragColor = vec4(col, alpha);
+}
+`
+
+function fibonacciSphere(count: number, radius: number) {
+  const out = new Float32Array(count * 3)
+  const golden = Math.PI * (3 - Math.sqrt(5))
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / Math.max(count - 1, 1)) * 2
+    const r = Math.sqrt(Math.max(0, 1 - y * y))
+    const theta = golden * i
+    const jitter = 0.92 + ((i * 17) % 11) / 80
+    out[i * 3] = Math.cos(theta) * r * radius * jitter
+    out[i * 3 + 1] = y * radius * 0.88
+    out[i * 3 + 2] = Math.sin(theta) * r * radius * jitter
+  }
+  return out
+}
+
+function nearestEdges(points: Float32Array, maxLinks: number, maxDist: number) {
+  const n = points.length / 3
+  const segments: number[] = []
+  const dist2 = maxDist * maxDist
+
+  for (let i = 0; i < n; i++) {
+    const ix = points[i * 3]
+    const iy = points[i * 3 + 1]
+    const iz = points[i * 3 + 2]
+    const found: Array<[number, number]> = []
+    for (let j = i + 1; j < n; j++) {
+      const dx = ix - points[j * 3]
+      const dy = iy - points[j * 3 + 1]
+      const dz = iz - points[j * 3 + 2]
+      const d = dx * dx + dy * dy + dz * dz
+      if (d < dist2) found.push([d, j])
+    }
+    found.sort((a, b) => a[0] - b[0])
+    const take = Math.min(maxLinks, found.length)
+    for (let k = 0; k < take; k++) {
+      const j = found[k][1]
+      segments.push(ix, iy, iz, points[j * 3], points[j * 3 + 1], points[j * 3 + 2])
+    }
+  }
+  return new Float32Array(segments)
+}
 
 export function createField(canvas: HTMLCanvasElement) {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -159,48 +104,81 @@ export function createField(canvas: HTMLCanvasElement) {
     alpha: false,
     powerPreference: 'high-performance',
   })
-  renderer.setClearColor(new Color('#fbf7f2'), 1)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.1 : 1.55))
+  renderer.setClearColor(new Color('#05060a'), 1)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.15 : 1.6))
 
   const scene = new Scene()
-  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
-  const geometry = new PlaneGeometry(2, 2)
-  const mouse = new Vector2(0.62, 0.48)
-  const target = new Vector2(0.62, 0.48)
+  const camera = new PerspectiveCamera(48, 1, 0.1, 30)
+  camera.position.set(0, 0.12, isMobile ? 5.4 : 4.7)
 
-  const material = new ShaderMaterial({
-    vertexShader: vertex,
-    fragmentShader: fragment,
+  const count = isMobile ? 520 : 1280
+  const positions = fibonacciSphere(count, isMobile ? 1.55 : 1.85)
+  const seeds = new Float32Array(count)
+  for (let i = 0; i < count; i++) seeds[i] = Math.random()
+
+  const pointGeo = new BufferGeometry()
+  pointGeo.setAttribute('position', new BufferAttribute(positions, 3))
+  pointGeo.setAttribute('aSeed', new BufferAttribute(seeds, 1))
+
+  const pointMat = new ShaderMaterial({
+    vertexShader: pointVert,
+    fragmentShader: pointFrag,
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
     uniforms: {
       uTime: { value: 0 },
-      uRes: { value: new Vector2(1, 1) },
-      uMouse: { value: mouse },
-      uReduce: { value: reduce ? 1 : 0 },
-      uQuality: { value: isMobile ? 0 : 1 },
+      uPixelRatio: { value: renderer.getPixelRatio() },
     },
   })
 
-  scene.add(new Mesh(geometry, material))
-  const clock = new Clock()
+  const points = new Points(pointGeo, pointMat)
+  scene.add(points)
+
+  const edges = nearestEdges(positions, isMobile ? 2 : 3, isMobile ? 0.52 : 0.42)
+  const lineGeo = new BufferGeometry()
+  lineGeo.setAttribute('position', new BufferAttribute(edges, 3))
+  const lineMat = new LineBasicMaterial({
+    color: 0x4de8ff,
+    transparent: true,
+    opacity: 0.13,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  })
+  const lines = new LineSegments(lineGeo, lineMat)
+  scene.add(lines)
+
+  const mouse = new Vector2(0, 0)
+  const target = new Vector2(0, 0)
   let raf = 0
   let running = true
+  let time = 0
+  let last = performance.now()
 
   const resize = () => {
     const w = canvas.clientWidth || window.innerWidth
     const h = canvas.clientHeight || window.innerHeight
     renderer.setSize(w, h, false)
-    material.uniforms.uRes.value.set(w, h)
+    camera.aspect = w / Math.max(h, 1)
+    camera.updateProjectionMatrix()
+    pointMat.uniforms.uPixelRatio.value = renderer.getPixelRatio()
   }
 
   const onMove = (event: PointerEvent) => {
-    target.set(event.clientX / window.innerWidth, 1 - event.clientY / window.innerHeight)
+    target.set((event.clientX / window.innerWidth) * 2 - 1, (event.clientY / window.innerHeight) * 2 - 1)
   }
 
-  const loop = () => {
+  const loop = (now: number) => {
     if (!running) return
     raf = requestAnimationFrame(loop)
-    mouse.lerp(target, 0.04)
-    material.uniforms.uTime.value = clock.getElapsedTime()
+    const dt = Math.min(0.05, (now - last) / 1000)
+    last = now
+    time += dt
+    mouse.lerp(target, 0.045)
+    points.rotation.y = time * 0.07 + mouse.x * 0.38
+    points.rotation.x = 0.16 + mouse.y * 0.18
+    lines.rotation.copy(points.rotation)
+    pointMat.uniforms.uTime.value = time
     renderer.render(scene, camera)
   }
 
@@ -212,8 +190,8 @@ export function createField(canvas: HTMLCanvasElement) {
     }
     if (!running) {
       running = true
-      clock.start()
-      loop()
+      last = performance.now()
+      loop(last)
     }
   }
 
@@ -222,8 +200,11 @@ export function createField(canvas: HTMLCanvasElement) {
   window.addEventListener('pointermove', onMove, { passive: true })
   document.addEventListener('visibilitychange', onVisibility)
 
-  if (!reduce) loop()
-  else renderer.render(scene, camera)
+  if (!reduce) {
+    loop(performance.now())
+  } else {
+    renderer.render(scene, camera)
+  }
 
   return () => {
     running = false
@@ -231,8 +212,10 @@ export function createField(canvas: HTMLCanvasElement) {
     window.removeEventListener('resize', resize)
     window.removeEventListener('pointermove', onMove)
     document.removeEventListener('visibilitychange', onVisibility)
-    geometry.dispose()
-    material.dispose()
+    pointGeo.dispose()
+    lineGeo.dispose()
+    pointMat.dispose()
+    lineMat.dispose()
     renderer.dispose()
   }
 }

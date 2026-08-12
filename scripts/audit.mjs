@@ -59,7 +59,7 @@ async function run(name, viewport) {
   const home = await measure(page)
   await page.screenshot({ path: `${out}/${name}-hero.png`, fullPage: false })
 
-  for (const id of ['leistungen', 'arbeit', 'ansatz', 'kontakt']) {
+  for (const id of ['systeme', 'inferenz', 'arbeit', 'methode', 'kontakt']) {
     await page.locator(`#${id}`).scrollIntoViewIfNeeded()
     await page.waitForTimeout(400)
     await page.screenshot({ path: `${out}/${name}-${id}.png`, fullPage: false })

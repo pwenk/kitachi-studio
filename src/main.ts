@@ -2,17 +2,18 @@ import './styles.css'
 import { initCursor } from './ui/cursor'
 import { initNav } from './ui/nav'
 import { initClock, initForm } from './ui/form'
-import { initMagnetic, initOrb } from './ui/magnetic'
+import { initMagnetic } from './ui/magnetic'
+import { initInfer } from './ui/infer'
 
 initNav()
 initForm()
 initClock()
 initCursor()
 initMagnetic()
-initOrb()
 
 const page = document.body.dataset.page
 if (page === 'home') {
+  initInfer()
   void Promise.all([import('./webgl/field'), import('./motion/app')]).then(
     ([{ createField }, { bootMotion }]) => {
       const canvas = document.querySelector<HTMLCanvasElement>('#field')
