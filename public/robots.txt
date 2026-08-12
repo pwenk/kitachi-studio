@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kitachi-studio.vercel.app/sitemap.xml
